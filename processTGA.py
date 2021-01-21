@@ -6,11 +6,11 @@ from scipy.signal import savgol_filter
 
 # Legend
 custom_legend = False
-custom_legend_names = ['MMV000046 Ramp', 'MMV000046 Step']
+custom_legend_names = ['Ramp', 'Step']
 
 # Linear fit for enthalpy calc
 linear = True # Perform the linear fit
-linear_ranges = [ (250, 330)] # Temperature range in C for the linear fit
+linear_ranges = [(185, 255)] # Temperature range in C for the linear fit
 
 # Smoothing using Savgol filter
 smooth = True # plot smoothed data
@@ -220,6 +220,7 @@ def plotinvKvsdmdt(datalist):
             sys.exit()
         for i,d in enumerate(datalist):
             linear_range = linear_ranges[i]
+            print(f'The linear range is {linear_range[0]}-{linear_range[1]}C')
             if d.isRamp:
                 lin_idx = (linear_range[0] < d.temp) & (d.temp < linear_range[1])
                 # Check that this range has 2 valid points 
@@ -228,7 +229,7 @@ def plotinvKvsdmdt(datalist):
                     if tf:
                         valid_pts = valid_pts + 1
                 if valid_pts < 2:
-                    print('Cannot find the necessary 2 points in the linear data range for a line fit.' \
+                    print('Cannot find the necessary 2 points in the linear data range for a line fit.' 
                             + ' Using entire data set for line fit.')
                     lin_temp_inv0 = 1.0/np.array(d.temp_K)
                     lin_dmdt = -d.dmdt
