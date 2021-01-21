@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
+from scipy.signal import argrelextrema
 
 filenames = sys.argv[1:]
 for filename in filenames:
@@ -25,7 +26,10 @@ for filename in filenames:
     heatFlow = data[:,2]
     temp = data[:,1]
     plt.plot(temp,heatFlow, label=filename)
-    
+
+
+print("Relative Max:", temp[argrelextrema(heatFlow, np.greater)[0]])
+print("Relative Min:", temp[argrelextrema(heatFlow, np.less)[0]])
 plt.xlabel(r'Temperature ($\degree$C)', fontname='Arial', fontsize=12)
 plt.ylabel('Heat Flow (mW)', fontname='Arial', fontsize=12)
 plt.title(title, fontname='Arial', fontsize=14)
