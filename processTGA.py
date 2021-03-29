@@ -6,11 +6,13 @@ from scipy.signal import savgol_filter
 
 # plots
 ExportData_bool = False
-plotTempvsMass_bool = True
+plotTempvsMass_bool = False
 plotTempvsdmdt_bool = True
 plotTempvsdmdt_normalized_bool = False
-plotinvKvsdmdt_bool = True
+plotinvKvsdmdt_bool = False
 plotinvKvsdmdt_stepwise_normalized_bool = False
+plotStepMassvsTime_bool = True
+plotStepdmdtvsTime_bool = True
 
 #Title
 custom_title = False
@@ -25,7 +27,7 @@ turn_legend_linefit_off = False
 
 # Linear fit for enthalpy calc
 linear = False # Perform the linear fit
-linear_ranges = [(150,200),(150,200)] # Temperature range in C for the linear fit
+linear_ranges = [(230,270)] # Temperature range in C for the linear fit
 
 # Smoothing using Savgol filter
 smooth = False # plot smoothed data
@@ -70,7 +72,7 @@ class data:
         ref_weight = weight[0]
         self.weight_percent = 100.0 + 100.0*(weight-ref_weight)/ref_weight
 
-        self.dmdt =  np.diff(self.weight_percent)/np.diff(self.time)
+        self.dmdt =  np.gradient(self.weight, self.time)
         self.dmdt_smooth = savgol_filter(self.dmdt, 31, 1)
         print(f"Reference weight for {title} is {ref_weight:.5f} mg")
 
@@ -130,6 +132,9 @@ def plotTempvsdmdt(datalist):
                 ax.scatter(d.temp_K[:-1], d.dmdt, s=pt_size, color=colors[color_idx], label=d.title)
         else:
             ax.plot(d.iso_temps_K, d.iso_dmdt, '-o', color=colors[color_idx], label=d.title)
+            if scatter:
+                ax.scatter(d.temp_K, d.dmdt, s=pt_size, color=colors[color_idx+1])
+                color_idx = color_idx + 1
         color_idx = color_idx + 1
     if smooth_ramp_only_and_I_DEMAND_THE_SAME_COLORS:
         color_idx = 0
@@ -688,6 +693,138 @@ def plotinvKvsdmdt_stepwise_normalized(datalist):
 
 
 ###############################################################################################
+def plotStepMassvsTime(datalist):
+    fig = plt.figure(6)
+    for d in datalist:
+        if d.isRamp:
+            print("PlotStepMassvsTime is only valid for step files!")
+            sys.exit()
+        else:
+            assert(len(d.iso_temps) == len(d.iso_timeSteps))
+            startStopIndices = []
+            for i in range(len(d.iso_temps)):
+                iso_temp = d.iso_temps[i]
+                iso_timeStep = d.iso_timeSteps[i]
+                iso_start, iso_stop = getIsothermStartStopIndices(d.temp, d.time, iso_temp, iso_timeStep)
+                startStopIndices.append((iso_start, iso_stop))
+
+            iso_mass = np.zeros(startStopIndices[i][1] - startStopIndices[i][0] + 1)
+            iso_time = np.zeros(startStopIndices[i][1] - startStopIndices[i][0] + 1)
+            for i in range(len(d.iso_temps)):
+                iso_mass = d.weight[startStopIndices[i][0] : startStopIndices[i][1] + 1]
+                iso_time = d.time[startStopIndices[i][0] : startStopIndices[i][1] + 1]
+                plt.plot(iso_time, iso_mass, label=r"" + d.title + " " + str(d.iso_temps[i]) + "$\degree$C") 
+
+    plt.xlabel(r'Time (min)', fontname=fontname, fontsize=fontsize)
+    plt.ylabel('Mass (g)', fontname=fontname, fontsize=fontsize)
+    plt.title("Mass vs. Time", fontname=fontname, fontsize=fontsize_title)
+    plt.tick_params(labelright=True, right=True, labeltop=True, top=True, which='both', direction='in')
+    plt.minorticks_on()
+    plt.legend()
+    fig.tight_layout()
+
+
+    fig = plt.figure(7)
+    for j, d in enumerate(datalist):
+        if d.isRamp:
+            print("PlotStepMassvsTime is only valid for step files!")
+            sys.exit()
+        else:
+            assert(len(d.iso_temps) == len(d.iso_timeSteps))
+            startStopIndices = []
+            for i in range(len(d.iso_temps)):
+                iso_temp = d.iso_temps[i]
+                iso_timeStep = d.iso_timeSteps[i]
+                iso_start, iso_stop = getIsothermStartStopIndices(d.temp, d.time, iso_temp, iso_timeStep)
+                startStopIndices.append((iso_start, iso_stop))
+                                                                                                              
+            iso_mass = np.zeros(startStopIndices[i][1] - startStopIndices[i][0] + 1)
+            iso_time = np.zeros(startStopIndices[i][1] - startStopIndices[i][0] + 1)
+            for i in range(len(d.iso_temps)):
+                if linear_ranges[j][0] <= d.iso_temps[i] and d.iso_temps[i] <= linear_ranges[j][1]:
+                    iso_mass = d.weight[startStopIndices[i][0] : startStopIndices[i][1] + 1]
+                    iso_time = d.time[startStopIndices[i][0] : startStopIndices[i][1] + 1] - d.time[startStopIndices[i][0]]
+                    plt.plot(iso_time, iso_mass, label=r"" + d.title + " " + str(d.iso_temps[i]) + "$\degree$C") 
+                                                                                                              
+    plt.xlabel(r'Time (min)', fontname=fontname, fontsize=fontsize)
+    plt.ylabel('Mass (g)', fontname=fontname, fontsize=fontsize)
+    plt.title("Mass vs. Time", fontname=fontname, fontsize=fontsize_title)
+    plt.tick_params(labelright=True, right=True, labeltop=True, top=True, which='both', direction='in')
+    plt.minorticks_on()
+    plt.legend()
+    fig.tight_layout()
+
+
+###############################################################################################
+def plotStepdmdtvsTime(datalist):
+    fig = plt.figure(8)
+    for j, d in enumerate(datalist):
+        if d.isRamp:
+            print("PlotStepMassvsTime is only valid for step files!")
+            sys.exit()
+        else:
+            assert(len(d.iso_temps) == len(d.iso_timeSteps))
+            startStopIndices = []
+            for i in range(len(d.iso_temps)):
+                iso_temp = d.iso_temps[i]
+                iso_timeStep = d.iso_timeSteps[i]
+                iso_start, iso_stop = getIsothermStartStopIndices(d.temp, d.time, iso_temp, iso_timeStep)
+                startStopIndices.append((iso_start, iso_stop))
+                                                                                                              
+            iso_dmdt = np.zeros(startStopIndices[i][1] - startStopIndices[i][0] + 1)
+            iso_time = np.zeros(startStopIndices[i][1] - startStopIndices[i][0] + 1)
+            for i in range(len(d.iso_temps)):
+                if linear_ranges[j][0] <= d.iso_temps[i] and d.iso_temps[i] <= linear_ranges[j][1]:
+                    iso_dmdt = d.dmdt[startStopIndices[i][0] : startStopIndices[i][1] + 1]
+                    iso_time = d.time[startStopIndices[i][0] : startStopIndices[i][1] + 1] - d.time[startStopIndices[i][0]]
+                    plt.plot(iso_time, iso_dmdt, label=r"" + d.title + " " + str(d.iso_temps[i]) + "$\degree$C") 
+            for i in range(len(d.iso_temps)):
+                if linear_ranges[j][0] <= d.iso_temps[i] and d.iso_temps[i] <= linear_ranges[j][1]:
+                    iso_dmdt = d.dmdt_smooth[startStopIndices[i][0] : startStopIndices[i][1] + 1]
+                    iso_time = d.time[startStopIndices[i][0] : startStopIndices[i][1] + 1] - d.time[startStopIndices[i][0]]
+                    plt.plot(iso_time, iso_dmdt, label=r"" + d.title + " " + str(d.iso_temps[i]) + "$\degree$C smooth") 
+                                                                                                              
+    plt.xlabel(r'Time (min)', fontname=fontname, fontsize=fontsize)
+    plt.ylabel(r'$\frac{dm}{dt}$ (mg/min)', fontname=fontname, fontsize=fontsize)
+    plt.title(r"$\frac{dm}{dt}$ vs. Time", fontname=fontname, fontsize=fontsize_title)
+    plt.tick_params(labelright=True, right=True, labeltop=True, top=True, which='both', direction='in')
+    plt.minorticks_on()
+    plt.legend()
+    fig.tight_layout()
+
+
+    fig = plt.figure(9)
+    for j, d in enumerate(datalist):
+        if d.isRamp:
+            print("PlotStepMassvsTime is only valid for step files!")
+            sys.exit()
+        else:
+            assert(len(d.iso_temps) == len(d.iso_timeSteps))
+            startStopIndices = []
+            for i in range(len(d.iso_temps)):
+                iso_temp = d.iso_temps[i]
+                iso_timeStep = d.iso_timeSteps[i]
+                iso_start, iso_stop = getIsothermStartStopIndices(d.temp, d.time, iso_temp, iso_timeStep)
+                startStopIndices.append((iso_start, iso_stop))
+                                                                                                              
+            iso_dmdt = np.zeros(startStopIndices[i][1] - startStopIndices[i][0] + 1)
+            iso_time = np.zeros(startStopIndices[i][1] - startStopIndices[i][0] + 1)
+            for i in range(len(d.iso_temps)):
+                if linear_ranges[j][0] <= d.iso_temps[i] and d.iso_temps[i] <= linear_ranges[j][1]:
+                    iso_dmdt = d.dmdt_smooth[startStopIndices[i][0] : startStopIndices[i][1] + 1]
+                    iso_time = d.time[startStopIndices[i][0] : startStopIndices[i][1] + 1] - d.time[startStopIndices[i][0]]
+                    plt.plot(iso_time, np.gradient(iso_dmdt, iso_time), 
+                            label=r"" + d.title + " " + str(d.iso_temps[i]) + "$\degree$C") 
+                                                                                                              
+    plt.xlabel(r'Time (min)', fontname=fontname, fontsize=fontsize)
+    plt.ylabel(r'$\frac{d^2m}{dt^2}$ (mg/min$^2$)', fontname=fontname, fontsize=fontsize)
+    plt.title(r"$\frac{d^2m}{dt^2}$ vs. Time", fontname=fontname, fontsize=fontsize_title)
+    plt.tick_params(labelright=True, right=True, labeltop=True, top=True, which='both', direction='in')
+    plt.minorticks_on()
+    plt.legend()
+    fig.tight_layout()
+
+###############################################################################################
 if __name__ == "__main__":
     datalist = importData(custom_legend_names)
     processStepData(datalist)
@@ -703,4 +840,8 @@ if __name__ == "__main__":
         plotinvKvsdmdt(datalist)
     if plotinvKvsdmdt_stepwise_normalized_bool:
         plotinvKvsdmdt_stepwise_normalized(datalist)
+    if plotStepMassvsTime_bool:
+        plotStepMassvsTime(datalist)
+    if plotStepdmdtvsTime_bool:
+        plotStepdmdtvsTime(datalist)
     plt.show()
